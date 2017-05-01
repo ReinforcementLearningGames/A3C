@@ -28,13 +28,13 @@ import common
 from common import (play_model, Evaluator, eval_model_multithread)
 
 IMAGE_SIZE = (84, 84)
-FRAME_HISTORY = 4
+FRAME_HISTORY = 1
 GAMMA = 0.99
 CHANNEL = FRAME_HISTORY * 3
 IMAGE_SHAPE3 = IMAGE_SIZE + (CHANNEL,)
 
 LOCAL_TIME_MAX = 5
-STEPS_PER_EPOCH = 6000
+STEPS_PER_EPOCH = 300
 EVAL_EPISODE = 50
 BATCH_SIZE = 128
 SIMULATOR_PROC = 50
@@ -81,6 +81,7 @@ class Model(ModelDesc):
 
     def _get_NN_prediction(self, image):
         image = image / 255.0
+
         with argscope(Conv2D, nl=tf.nn.relu):
             l = Conv2D('conv0', image, out_channel=32, kernel_shape=5)
             l = MaxPooling('pool0', l, 2)
@@ -192,7 +193,7 @@ class MySimulatorMaster(SimulatorMaster, Callback):
 
 
 def get_config():
-    dirname = os.path.join('train_log', 'train-atari-{}'.format(ENV_NAME))
+    dirname = os.path.join('train_log', 'train-{}'.format(ENV_NAME))
     logger.set_logger_dir(dirname)
     M = Model()
 
