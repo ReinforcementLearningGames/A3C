@@ -96,10 +96,10 @@ class Model(ModelDesc):
 
         l = tf.contrib.layers.flatten(l)
 
-        # Add extra dimension for MAX_TIME
+        # Add extra dimension for BATCH_SIZE
         rnn_in = tf.expand_dims(l, [0])
 
-        outputs, states = tf.nn.dynamic_rnn(self.rnn_cell, rnn_in, dtype=tf.float32, time_major=True)
+        outputs, states = tf.nn.dynamic_rnn(self.rnn_cell, rnn_in, dtype=tf.float32, time_major=False)
         rnn_out = tf.reshape(outputs, [-1, 512])
 
         l = FullyConnected('fc0', rnn_out, 512, nl=tf.identity)
