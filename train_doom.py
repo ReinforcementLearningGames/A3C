@@ -73,6 +73,9 @@ class MySimulatorWorker(SimulatorProcess):
 
 
 class Model(ModelDesc):
+
+    rnn_cell = tf.contrib.rnn.BasicLSTMCell(512)
+
     def _get_inputs(self):
         assert NUM_ACTIONS is not None
         return [InputDesc(tf.float32, (None,) + IMAGE_SHAPE3, 'state'),
@@ -91,7 +94,15 @@ class Model(ModelDesc):
             l = MaxPooling('pool2', l, 2)
             l = Conv2D('conv3', l, out_channel=64, kernel_shape=3)
 
-        l = FullyConnected('fc0', l, 512, nl=tf.identity)
+        l = tf.contrib.layers.flatten(l)
+
+        # Add extra dimension for MAX_TIME
+        rnn_in = tf.expand_dims(l, [0])
+
+        outputs, states = tf.nn.dynamic_rnn(self.rnn_cell, rnn_in, dtype=tf.float32, time_major=True)
+        rnn_out = tf.reshape(outputs, [-1, 512])
+
+        l = FullyConnected('fc0', rnn_out, 512, nl=tf.identity)
         l = PReLU('prelu', l)
         logits = FullyConnected('fc-pi', l, out_dim=NUM_ACTIONS, nl=tf.identity)    # unnormalized policy
         value = FullyConnected('fc-v', l, 1, nl=tf.identity)
