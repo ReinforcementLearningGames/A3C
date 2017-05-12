@@ -24,7 +24,7 @@ class Worker():
         self.episode_rewards = []
         self.episode_lengths = []
         self.episode_mean_values = []
-        self.summary_writer = tf.summary.FileWriter("train_" + str(self.number))
+        self.summary_writer = tf.summary.FileWriter("results/train_" + str(self.number))
 
         #Create the local copy of the network and the tensorflow op to copy global paramters to local network
         self.local_AC = AC_Network(s_size, a_size, self.name, trainer)
