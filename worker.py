@@ -158,7 +158,7 @@ class Worker():
 
                         make_gif(
                             images,
-                            './frames/image' + str(episode_count) + '.gif',
+                            'results/frames/image' + str(episode_count) + '.gif',
                             duration=len(images) * time_per_step,
                             true_image=True,
                             salience=False)
