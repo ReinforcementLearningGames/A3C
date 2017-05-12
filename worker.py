@@ -85,7 +85,7 @@ class Worker():
                 episode_step_count = 0
                 in_terminal_state = False
 
-                state = self.env.gymenv.reset()
+                state = self.env.reset()
                 episode_frames.append(state)
                 state = process_frame(state)
                 rnn_state = self.local_AC.state_init
@@ -102,7 +102,7 @@ class Worker():
                     a = np.random.choice(a_dist[0], p=a_dist[0])
                     a = np.argmax(a_dist == a)
 
-                    next_state, reward, in_terminal_state, info = self.env.gymenv.step(self.actions[a])
+                    next_state, reward, in_terminal_state, info = self.env.step(self.actions[a])
                     reward /= 100.0
                     if not in_terminal_state:
                         episode_frames.append(next_state)
