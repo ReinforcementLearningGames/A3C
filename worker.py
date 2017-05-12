@@ -4,7 +4,6 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import scipy.signal
-from doomenv import DoomEnv
 from helper import *
 from network import AC_Network
 

@@ -4,7 +4,6 @@ import multiprocessing
 import tensorflow as tf
 import threading
 
-from doomenv import DoomEnv
 from helper import *
 from network import AC_Network
 from ppaquette_gym_doom.wrappers import SetResolution, ToDiscrete

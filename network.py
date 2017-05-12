@@ -5,7 +5,6 @@ import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import scipy.signal
 from helper import *
-from doomenv import DoomEnv
 
 from random import choice
 from time import sleep
