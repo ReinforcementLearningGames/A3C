@@ -70,7 +70,7 @@ class Worker():
             feed_dict=feed_dict)
         return v_l / len(rollout), p_l / len(rollout), e_l / len(rollout), g_n, v_n
 
-    def _step(self, sess, state, rnn_state):
+    def _choose_action(self, sess, state, rnn_state):
         action_distribution, value, rnn_state = sess.run(
             [self.local_AC.policy, self.local_AC.value, self.local_AC.state_out],
             feed_dict={
@@ -78,8 +78,13 @@ class Worker():
                 self.local_AC.state_in[0]: rnn_state[0],
                 self.local_AC.state_in[1]: rnn_state[1]
         })
-        a = np.random.choice(self.actions, p=action_distribution[0])
-        return a, value, rnn_state
+        action = np.random.choice(self.actions, p=action_distribution[0])
+        return action, value, rnn_state
+
+    def _step(self, action):
+        next_state, reward, terminal, _ = self.env.step(action)
+        reward /= 100.0
+        return next_state, reward, terminal
 
 
     def work(self, max_episode_length, gamma, sess, coord, saver):
@@ -103,10 +108,9 @@ class Worker():
 
                 while not in_terminal_state:
                     #Take an action using probabilities from policy network output.
-                    a, v, rnn_state = self._step(sess, state, rnn_state)
+                    a, v, rnn_state = self._choose_action(sess, state, rnn_state)
+                    next_state, reward, in_terminal_state = self._step(a)
 
-                    next_state, reward, in_terminal_state, info = self.env.step(self.actions[a])
-                    reward /= 100.0
                     if not in_terminal_state:
                         episode_frames.append(next_state)
                         next_state = process_frame(next_state)
@@ -137,8 +141,6 @@ class Worker():
                         v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer, sess, gamma, v1)
                         episode_buffer = []
                         sess.run(self.update_local_ops)
-                    if in_terminal_state:
-                        break
 
                 self.episode_rewards.append(episode_reward)
                 self.episode_lengths.append(episode_step_count)
