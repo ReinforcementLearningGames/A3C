@@ -4,10 +4,10 @@ import multiprocessing
 import tensorflow as tf
 import threading
 
-from helper import *
-from network import AC_Network
+from utils.helper import *
+from agent.network import AC_Network
+from agent.worker import Worker
 from time import sleep
-from worker import Worker
 
 model_path = "results/model"
 frames_path = "results/frames"
