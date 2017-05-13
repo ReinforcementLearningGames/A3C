@@ -13,7 +13,7 @@ from time import time
 
 
 class Worker():
-    def __init__(self, game, name, s_size, a_size, trainer, model_path, global_episodes):
+    def __init__(self, env, name, s_size, a_size, trainer, model_path, global_episodes):
         self.name = "worker_" + str(name)
         self.number = name
         self.model_path = model_path
@@ -32,7 +32,7 @@ class Worker():
         #The Below code is related to setting up the Doom environment
         self.actions = [i for i in range(a_size)]
         #End Doom set-up
-        self.env = game
+        self.env = env
 
     def train(self, rollout, sess, gamma, bootstrap_value):
         rollout = np.array(rollout)
@@ -70,6 +70,19 @@ class Worker():
             feed_dict=feed_dict)
         return v_l / len(rollout), p_l / len(rollout), e_l / len(rollout), g_n, v_n
 
+    def _step(self, sess, state, rnn_state):
+        action_distribution, value, rnn_state = sess.run(
+            [self.local_AC.policy, self.local_AC.value, self.local_AC.state_out],
+            feed_dict={
+                self.local_AC.inputs: [state],
+                self.local_AC.state_in[0]: rnn_state[0],
+                self.local_AC.state_in[1]: rnn_state[1]
+        })
+        a = np.random.choice(action_distribution[0], p=action_distribution[0])
+        a = np.argmax(action_distribution == a)
+        return a, value, rnn_state
+
+
     def work(self, max_episode_length, gamma, sess, coord, saver):
         episode_count = sess.run(self.global_episodes)
         total_steps = 0
@@ -91,15 +104,7 @@ class Worker():
 
                 while not in_terminal_state:
                     #Take an action using probabilities from policy network output.
-                    a_dist, v, rnn_state = sess.run(
-                        [self.local_AC.policy, self.local_AC.value, self.local_AC.state_out],
-                        feed_dict={
-                            self.local_AC.inputs: [state],
-                            self.local_AC.state_in[0]: rnn_state[0],
-                            self.local_AC.state_in[1]: rnn_state[1]
-                        })
-                    a = np.random.choice(a_dist[0], p=a_dist[0])
-                    a = np.argmax(a_dist == a)
+                    a, v, rnn_state = self._step(sess, state, rnn_state)
 
                     next_state, reward, in_terminal_state, info = self.env.step(self.actions[a])
                     reward /= 100.0
