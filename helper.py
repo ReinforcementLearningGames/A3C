@@ -7,6 +7,12 @@ import csv
 import itertools
 import tensorflow.contrib.slim as slim
 
+from ppaquette_gym_doom.wrappers import SetResolution, ToDiscrete
+
+
+def wrap_doom(env):
+    return SetResolution("160x120")(ToDiscrete("minimal")(env))
+
 
 # Processes Doom screen image to produce cropped and resized image. 
 def process_frame(frame):
