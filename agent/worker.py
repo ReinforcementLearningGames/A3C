@@ -78,8 +78,7 @@ class Worker():
                 self.local_AC.state_in[0]: rnn_state[0],
                 self.local_AC.state_in[1]: rnn_state[1]
         })
-        a = np.random.choice(action_distribution[0], p=action_distribution[0])
-        a = np.argmax(action_distribution == a)
+        a = np.random.choice(self.actions, p=action_distribution[0])
         return a, value, rnn_state
 
 
