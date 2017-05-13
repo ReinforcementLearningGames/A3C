@@ -144,6 +144,7 @@ class Worker():
                 self.episode_mean_values.append(np.mean(episode_values))
 
                 # Update the network using the experience buffer at the end of the episode.
+                v_l = p_l = e_l = g_n = v_n = 0.0
                 if len(episode_buffer) != 0:
                     v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer, sess, gamma, 0.0)
 
