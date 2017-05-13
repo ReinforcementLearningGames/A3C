@@ -24,6 +24,7 @@ class Worker():
         self.episode_lengths = []
         self.episode_mean_values = []
         self.summary_writer = tf.summary.FileWriter("results/train_" + str(self.number))
+        self.lead_worker = name == 0
 
         #Create the local copy of the network and the tensorflow op to copy global paramters to local network
         self.local_AC = AC_Network(s_size, a_size, self.name, trainer)
@@ -90,6 +91,37 @@ class Worker():
         reward /= 100.0
         return next_state, reward, terminal
 
+    def _save_summary(self, episode_count, v_l, p_l, e_l, g_n, v_n):
+        mean_reward = np.mean(self.episode_rewards[-5:])
+        mean_length = np.mean(self.episode_lengths[-5:])
+        mean_value = np.mean(self.episode_mean_values[-5:])
+        summary = tf.Summary()
+        summary.value.add(tag='Perf/Reward', simple_value=float(mean_reward))
+        summary.value.add(tag='Perf/Length', simple_value=float(mean_length))
+        summary.value.add(tag='Perf/Value', simple_value=float(mean_value))
+        summary.value.add(tag='Losses/Value Loss', simple_value=float(v_l))
+        summary.value.add(tag='Losses/Policy Loss', simple_value=float(p_l))
+        summary.value.add(tag='Losses/Entropy', simple_value=float(e_l))
+        summary.value.add(tag='Losses/Grad Norm', simple_value=float(g_n))
+        summary.value.add(tag='Losses/Var Norm', simple_value=float(v_n))
+        self.summary_writer.add_summary(summary, episode_count)
+
+        self.summary_writer.flush()
+
+    def _save_gif(self, episode_count, episode_frames):
+        time_per_step = 0.05
+        images = np.array(episode_frames)
+
+        make_gif(
+            images,
+            'results/frames/image' + str(episode_count) + '.gif',
+            duration=len(images) * time_per_step,
+            true_image=True,
+            salience=False)
+
+    def _save_model(self, sess, saver, episode_count):
+        saver.save(sess, self.model_path + '/model-' + str(episode_count) + '.cptk')
+
     def work(self, max_episode_length, gamma, sess, coord, saver):
         episode_count = sess.run(self.global_episodes)
         total_steps = 0
@@ -150,35 +182,16 @@ class Worker():
 
                 # Periodically save gifs of episodes, model parameters, and summary statistics.
                 if episode_count % 10 == 0 and episode_count != 0:
-                    if self.name == 'worker_0' and episode_count % 25 == 0:
-                        time_per_step = 0.05
-                        images = np.array(episode_frames)
+                    self._save_summary(episode_count, v_l, p_l, e_l, g_n, v_n)
 
-                        make_gif(
-                            images,
-                            'results/frames/image' + str(episode_count) + '.gif',
-                            duration=len(images) * time_per_step,
-                            true_image=True,
-                            salience=False)
-                    if episode_count % 250 == 0 and self.name == 'worker_0':
-                        saver.save(sess, self.model_path + '/model-' + str(episode_count) + '.cptk')
-                        print("Saved Model")
+                    if self.lead_worker and episode_count % 50 == 0:
+                        self._save_gif(episode_count, episode_frames)
 
-                    mean_reward = np.mean(self.episode_rewards[-5:])
-                    mean_length = np.mean(self.episode_lengths[-5:])
-                    mean_value = np.mean(self.episode_mean_values[-5:])
-                    summary = tf.Summary()
-                    summary.value.add(tag='Perf/Reward', simple_value=float(mean_reward))
-                    summary.value.add(tag='Perf/Length', simple_value=float(mean_length))
-                    summary.value.add(tag='Perf/Value', simple_value=float(mean_value))
-                    summary.value.add(tag='Losses/Value Loss', simple_value=float(v_l))
-                    summary.value.add(tag='Losses/Policy Loss', simple_value=float(p_l))
-                    summary.value.add(tag='Losses/Entropy', simple_value=float(e_l))
-                    summary.value.add(tag='Losses/Grad Norm', simple_value=float(g_n))
-                    summary.value.add(tag='Losses/Var Norm', simple_value=float(v_n))
-                    self.summary_writer.add_summary(summary, episode_count)
+                    if self.lead_worker and episode_count % 250 == 0:
+                        self._save_model(sess, saver, episode_count)
+                        print("Model Saved.")
 
-                    self.summary_writer.flush()
-                if self.name == 'worker_0':
+                if self.lead_worker:
                     sess.run(self.increment)
+                    
                 episode_count += 1
