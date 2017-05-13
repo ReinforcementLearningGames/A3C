@@ -70,14 +70,18 @@ class Worker():
             feed_dict=feed_dict)
         return v_l / len(rollout), p_l / len(rollout), e_l / len(rollout), g_n, v_n
 
-    def _choose_action(self, sess, state, rnn_state):
-        action_distribution, value, rnn_state = sess.run(
-            [self.local_AC.policy, self.local_AC.value, self.local_AC.state_out],
-            feed_dict={
+    def _get_feed_dict(self, state, rnn_state):
+        return {
                 self.local_AC.inputs: [state],
                 self.local_AC.state_in[0]: rnn_state[0],
                 self.local_AC.state_in[1]: rnn_state[1]
-        })
+        }
+
+    def _choose_action(self, sess, state, rnn_state):
+        action_distribution, value, rnn_state = sess.run(
+            [self.local_AC.policy, self.local_AC.value, self.local_AC.state_out],
+             self._get_feed_dict(state, rnn_state))
+
         action = np.random.choice(self.actions, p=action_distribution[0])
         return action, value, rnn_state
 
@@ -85,7 +89,6 @@ class Worker():
         next_state, reward, terminal, _ = self.env.step(action)
         reward /= 100.0
         return next_state, reward, terminal
-
 
     def work(self, max_episode_length, gamma, sess, coord, saver):
         episode_count = sess.run(self.global_episodes)
@@ -131,13 +134,7 @@ class Worker():
                            ) == 30 and not in_terminal_state and episode_step_count != max_episode_length - 1:
                         # Since we don't know what the true final return is, we "bootstrap" from our current
                         # value estimation.
-                        v1 = sess.run(
-                            self.local_AC.value,
-                            feed_dict={
-                                self.local_AC.inputs: [state],
-                                self.local_AC.state_in[0]: rnn_state[0],
-                                self.local_AC.state_in[1]: rnn_state[1]
-                            })[0, 0]
+                        v1 = sess.run(self.local_AC.value, self._get_feed_dict(state, rnn_state))[0, 0]
                         v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer, sess, gamma, v1)
                         episode_buffer = []
                         sess.run(self.update_local_ops)
