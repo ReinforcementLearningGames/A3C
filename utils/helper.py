@@ -1,17 +1,20 @@
+import gym
 import numpy as np
 import random
-import tensorflow as tf
 import scipy.misc
-import os
-import csv
-import itertools
-import tensorflow.contrib.slim as slim
+import tensorflow as tf
 
 from ppaquette_gym_doom.wrappers import SetResolution, ToDiscrete
 
 
-def wrap_doom(env):
-    return SetResolution("640x480")(ToDiscrete("minimal")(env))
+def get_env(env_name):
+    env = gym.make(env_name)
+    if "doom" in env_name.lower():
+        env = wrap_doom(env)
+    return env
+
+def wrap_doom(env, resolution="640x480", actions="minimal"):
+    return SetResolution(resolution)(ToDiscrete(actions)(env))
 
 
 # Processes Doom screen image to produce cropped and resized image. 

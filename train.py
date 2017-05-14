@@ -1,6 +1,7 @@
 import argparse
 import gym
 import multiprocessing
+import os
 import tensorflow as tf
 import threading
 
@@ -32,10 +33,7 @@ if __name__ == "__main__":
     if not os.path.exists(frames_path):
         os.makedirs(frames_path)
 
-    env = gym.make(args.env_name)
-    if "doom" in args.env_name.lower():
-        env = wrap_doom(env)
-
+    env = get_env(args.env_name)
     a_size = env.action_space.n
 
     with tf.device("/cpu:0"):
@@ -43,10 +41,11 @@ if __name__ == "__main__":
         trainer = tf.train.AdamOptimizer(learning_rate=args.lr)
         master_network = AC_Network(args.observation_dim, a_size, "global", None)
         num_workers = multiprocessing.cpu_count()
-        workers = [
-            Worker(env, i, args.observation_dim, a_size, trainer, model_path, global_episodes)
-            for i in range(num_workers)
-        ]
+        workers = []
+        for i in range(num_workers):
+            # Create new environment for each worker
+            env = get_env(args.env_name)
+            workers.append(Worker(env, i, args.observation_dim, a_size, trainer, model_path, global_episodes))
         saver = tf.train.Saver(max_to_keep=5)
 
     with tf.Session() as sess:
