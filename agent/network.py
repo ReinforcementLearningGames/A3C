@@ -14,9 +14,9 @@ from time import time
 class AC_Network():
     def __init__(self, s_size, a_size, scope, trainer):
         with tf.variable_scope(scope):
-            #Input and visual encoding layers
             self.inputs = tf.placeholder(shape=[None, s_size], dtype=tf.float32)
-            self.imageIn = tf.reshape(self.inputs, shape=[-1, 84, 84, 1])
+            image_dim = int(np.sqrt(s_size))
+            self.imageIn = tf.reshape(self.inputs, shape=[-1, image_dim, image_dim, 1])
             self.conv1 = slim.conv2d(
                 activation_fn=tf.nn.elu,
                 inputs=self.imageIn,
