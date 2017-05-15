@@ -35,7 +35,13 @@ class Worker():
         #End Doom set-up
         self.env = env
 
-    def train(self, rollout, sess, gamma, bootstrap_value):
+    def train(self, rollout, sess, gamma, value_dict=None):
+
+        # sanity check: if there is no experience, return zeros.
+        if len(rollout) == 0:
+            return 0.0, 0.0, 0.0, 0.0, 0.0
+
+        bootstrap_value = sess.run(self.local_AC.value, value_dict)[0, 0] if value_dict is not None else 0.0
         rollout = np.array(rollout)
         observations = rollout[:, 0]
         actions = rollout[:, 1]
@@ -121,6 +127,9 @@ class Worker():
     def _save_model(self, sess, saver, episode_count):
         saver.save(sess, self.model_path + '/model-' + str(episode_count) + '.cptk')
 
+    def _training_required(self, episode_buffer, terminal_state, episode_steps, max_episode_length):
+        return len(episode_buffer) == 30 and not terminal_state and episode_steps != max_episode_length - 1
+
     def work(self, max_episode_length, gamma, sess, coord, saver):
         episode_count = sess.run(self.global_episodes)
         total_steps = 0
@@ -161,23 +170,20 @@ class Worker():
 
                     # If the episode hasn't ended, but the experience buffer is full, then we
                     # make an update step using that experience rollout.
-                    if len(episode_buffer
-                           ) == 30 and not in_terminal_state and episode_step_count != max_episode_length - 1:
+                    if self._training_required(episode_buffer, in_terminal_state, episode_step_count, max_episode_length):
                         # Since we don't know what the true final return is, we "bootstrap" from our current
                         # value estimation.
-                        v1 = sess.run(self.local_AC.value, self._get_feed_dict(state, rnn_state))[0, 0]
-                        v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer, sess, gamma, v1)
+                        v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer,
+                                                             sess,
+                                                             gamma,
+                                                             self._get_feed_dict(state, rnn_state))
                         episode_buffer = []
                         sess.run(self.update_local_ops)
 
                 self.episode_rewards.append(episode_reward)
                 self.episode_lengths.append(episode_step_count)
                 self.episode_mean_values.append(np.mean(episode_values))
-
-                # Update the network using the experience buffer at the end of the episode.
-                v_l = p_l = e_l = g_n = v_n = 0.0
-                if len(episode_buffer) != 0:
-                    v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer, sess, gamma, 0.0)
+                v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer, sess, gamma)
 
                 # Periodically save gifs of episodes, model parameters, and summary statistics.
                 if episode_count % 10 == 0 and episode_count != 0:
