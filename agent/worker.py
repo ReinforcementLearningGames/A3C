@@ -84,7 +84,7 @@ class Worker():
              self._get_feed_dict(state, rnn_state))
 
         action = np.random.choice(self.actions, p=action_distribution[0])
-        return action, value, rnn_state
+        return action, value[0,0], rnn_state
 
     def _step(self, action):
         next_state, reward, terminal, _ = self.env.step(action)
@@ -105,7 +105,6 @@ class Worker():
         summary.value.add(tag='Losses/Grad Norm', simple_value=float(g_n))
         summary.value.add(tag='Losses/Var Norm', simple_value=float(v_n))
         self.summary_writer.add_summary(summary, episode_count)
-
         self.summary_writer.flush()
 
     def _save_gif(self, episode_count, episode_frames):
@@ -143,8 +142,8 @@ class Worker():
 
                 while not in_terminal_state:
                     #Take an action using probabilities from policy network output.
-                    a, v, rnn_state = self._choose_action(sess, state, rnn_state)
-                    next_state, reward, in_terminal_state = self._step(a)
+                    action, value, rnn_state = self._choose_action(sess, state, rnn_state)
+                    next_state, reward, in_terminal_state = self._step(action)
 
                     if not in_terminal_state:
                         episode_frames.append(next_state)
@@ -152,8 +151,8 @@ class Worker():
                     else:
                         next_state = state
 
-                    episode_buffer.append([state, a, reward, next_state, in_terminal_state, v[0, 0]])
-                    episode_values.append(v[0, 0])
+                    episode_buffer.append([state, action, reward, next_state, in_terminal_state, value])
+                    episode_values.append(value)
 
                     episode_reward += reward
                     state = next_state
