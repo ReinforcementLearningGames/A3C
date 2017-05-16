@@ -88,3 +88,35 @@ class AC_Network():
                 #Apply local gradients to global network
                 global_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'global')
                 self.apply_grads = trainer.apply_gradients(zip(grads, global_vars))
+
+class Dense_AC_Network():
+
+    def __init__(self, s_size, a_size, scope, trainer):
+        self.inputs = tf.placeholder(shape=[None, s_size], dtype=tf.float32)
+        self.rnn_in = tf.expand_dims(self.inputs, [0])
+        self.lstm_cell = tf.contrib.rnn.BasicLSTMCell(256)
+        self.state_in = (tf.placeholder(tf.float32, [1, lstm_cell.state_size.c]),
+                         tf.placeholder(tf.float32, [1, lstm_cell.state_size.h]))
+        step_size = tf.shape(inputs)[0]
+        lstm_out, lstm_state = tf.nn.dynamic_rnn(self.lstm_cell,
+                                self.rnn_in,
+                                sequence_length=step_size,
+                                initial_state=self.state_in,
+                                time_major=False)
+        self.state_out = (lstm_c[:1, :], lstm_h[:1, :])
+        rnn_out = tf.reshape(lstm_outputs, [-1, 256])
+
+        #Output layers for policy and value estimations
+        self.policy = slim.fully_connected(
+            rnn_out,
+            a_size,
+            activation_fn=tf.nn.softmax,
+            weights_initializer=normalized_columns_initializer(0.01),
+            biases_initializer=None)
+        self.value = slim.fully_connected(
+            rnn_out,
+            1,
+            activation_fn=None,
+            weights_initializer=normalized_columns_initializer(1.0),
+            biases_initializer=None)
+
