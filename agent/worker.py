@@ -200,3 +200,29 @@ class Worker():
                     sess.run(self.increment)
                     
                 episode_count += 1
+
+    def run(self, max_episode_length, sess):
+        with sess.as_default(), sess.graph.as_default():
+            episode_reward = 0
+            episode_step_count = 0
+            in_terminal_state = False
+
+            state = self.env.reset()
+            state = process_frame(state)
+            rnn_state = self.local_AC.state_init
+
+            while not in_terminal_state:
+                #Take an action using probabilities from policy network output.
+                action, value, rnn_state = self._choose_action(sess, state, rnn_state)
+                next_state, reward, in_terminal_state = self._step(action)
+
+                if not in_terminal_state:
+                    next_state = process_frame(next_state)
+                else:
+                    next_state = state
+
+                episode_reward += reward
+                state = next_state
+                episode_step_count += 1
+
+            return episode_reward

@@ -19,8 +19,7 @@ def wrap_doom(env, resolution="640x480", actions="minimal"):
 
 # Processes Doom screen image to produce cropped and resized image. 
 def process_frame(frame):
-    s = frame[10:-10, 30:-30]
-    s = np.mean(s, axis=-1)
+    s = np.mean(frame, axis=-1)
     s = scipy.misc.imresize(s, [84, 84])
     s = np.reshape(s, [np.prod(s.shape)]) / 255.0
     return s
