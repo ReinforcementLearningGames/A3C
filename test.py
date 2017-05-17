@@ -8,6 +8,7 @@ import threading
 from utils.helper import *
 from agent.network import AC_Network
 from agent.worker import Worker
+from gym import wrappers
 from time import sleep
 
 model_path = "results/model"
@@ -31,6 +32,7 @@ if __name__ == "__main__":
         os.makedirs(frames_path)
 
     env = get_env(args.env_name)
+    env = wrappers.Monitor(env, "results/videos")
     a_size = env.action_space.n
 
     with tf.device("/cpu:0"):
@@ -38,7 +40,7 @@ if __name__ == "__main__":
         master_network = AC_Network(args.observation_dim, a_size, "global", None)
         trainer = tf.train.AdamOptimizer(learning_rate=0)
         test_worker = Worker(env, 0, args.observation_dim, a_size, trainer, model_path, global_episodes)
-        saver = tf.train.Saver(max_to_keep=5)
+        saver = tf.train.Saver()
 
     with tf.Session() as sess:
         coord = tf.train.Coordinator()
