@@ -92,9 +92,9 @@ class Worker():
         action = np.random.choice(self.actions, p=action_distribution[0])
         return action, value[0,0], rnn_state
 
-    def _step(self, action):
+    def _step(self, action, reward_scale):
         next_state, reward, terminal, _ = self.env.step(action)
-        reward /= 100.0
+        reward *= reward_scale
         return next_state, reward, terminal
 
     def _save_summary(self, episode_count, v_l, p_l, e_l, g_n, v_n):
@@ -130,7 +130,7 @@ class Worker():
     def _training_required(self, episode_buffer, terminal_state, episode_steps, max_episode_length):
         return len(episode_buffer) == 30 and not terminal_state and episode_steps != max_episode_length - 1
 
-    def work(self, max_episode_length, gamma, sess, coord, saver):
+    def work(self, max_episode_length, gamma, sess, coord, saver, reward_scale=0.001):
         episode_count = sess.run(self.global_episodes)
         total_steps = 0
         print("Starting worker " + str(self.number))
@@ -152,7 +152,7 @@ class Worker():
                 while not in_terminal_state:
                     #Take an action using probabilities from policy network output.
                     action, value, rnn_state = self._choose_action(sess, state, rnn_state)
-                    next_state, reward, in_terminal_state = self._step(action)
+                    next_state, reward, in_terminal_state = self._step(action, reward_scale)
 
                     if not in_terminal_state:
                         episode_frames.append(next_state)
