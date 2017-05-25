@@ -177,7 +177,7 @@ class Worker():
 
                     # If the episode hasn't ended, but the experience buffer is full, then we
                     # make an update step using that experience rollout.
-                    if self._training_required(episode_buffer, in_terminal_state, episode_step_count, max_episode_length):
+                    if self._training_required(episode_buffer, in_terminal_state, episode_step_count, max_episode_length, tmax):
                         # Since we don't know what the true final return is, we "bootstrap" from our current
                         # value estimation.
                         v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer,
