@@ -131,10 +131,11 @@ class Worker():
     def _save_model(self, sess, saver, episode_count):
         saver.save(sess, self.model_path + '/model-' + str(episode_count) + '.cptk')
 
-    def _training_required(self, episode_buffer, terminal_state, episode_steps, max_episode_length):
-        return len(episode_buffer) == 30 and not terminal_state and episode_steps != max_episode_length - 1
+    def _training_required(self, episode_buffer, terminal_state, episode_steps, max_episode_length, tmax):
+        return len(episode_buffer) == tmax and not terminal_state and episode_steps != max_episode_length - 1
 
-    def work(self, max_episode_length, gamma, sess, coord, saver, reward_scale=1.0):
+
+    def work(self, max_episode_length, gamma, sess, coord, saver, reward_scale=0.001, tmax=30):
         episode_count = sess.run(self.global_episodes)
         total_steps = 0
         print("Starting worker " + str(self.number))
