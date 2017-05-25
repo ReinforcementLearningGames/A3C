@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import scipy.signal
-from agent.network import AC_Network
+from agent.network import AC_Network, Dense_AC_Network
 from utils.helper import *
 
 from random import choice
@@ -13,7 +13,7 @@ from time import time
 
 
 class Worker():
-    def __init__(self, env, name, s_size, a_size, trainer, model_path, global_episodes):
+    def __init__(self, env, name, s_size, a_size, trainer, model_path, global_episodes, state_is_image=True):
         self.name = "worker_" + str(name)
         self.number = name
         self.model_path = model_path
@@ -25,9 +25,13 @@ class Worker():
         self.episode_mean_values = []
         self.summary_writer = tf.summary.FileWriter("results/train_" + str(self.number))
         self.lead_worker = name == 0
+        self.state_is_image = state_is_image
 
         #Create the local copy of the network and the tensorflow op to copy global paramters to local network
-        self.local_AC = AC_Network(s_size, a_size, self.name, trainer)
+        if state_is_image:
+            self.local_AC = AC_Network(s_size, a_size, self.name, trainer, beta=0.1)
+        else:
+            self.local_AC = Dense_AC_Network(s_size, a_size, self.name, trainer, beta=0.1)
         self.update_local_ops = update_target_graph('global', self.name)
 
         #The Below code is related to setting up the Doom environment
@@ -130,7 +134,7 @@ class Worker():
     def _training_required(self, episode_buffer, terminal_state, episode_steps, max_episode_length):
         return len(episode_buffer) == 30 and not terminal_state and episode_steps != max_episode_length - 1
 
-    def work(self, max_episode_length, gamma, sess, coord, saver, reward_scale=0.001):
+    def work(self, max_episode_length, gamma, sess, coord, saver, reward_scale=1.0):
         episode_count = sess.run(self.global_episodes)
         total_steps = 0
         print("Starting worker " + str(self.number))
@@ -145,8 +149,9 @@ class Worker():
                 in_terminal_state = False
 
                 state = self.env.reset()
-                episode_frames.append(state)
-                state = process_frame(state)
+                if self.state_is_image:
+                    episode_frames.append(state)
+                    state = process_frame(state)
                 rnn_state = self.local_AC.state_init
 
                 while not in_terminal_state:
@@ -155,8 +160,9 @@ class Worker():
                     next_state, reward, in_terminal_state = self._step(action, reward_scale)
 
                     if not in_terminal_state:
-                        episode_frames.append(next_state)
-                        next_state = process_frame(next_state)
+                        if self.state_is_image:
+                            episode_frames.append(next_state)
+                            next_state = process_frame(next_state)
                     else:
                         next_state = state
 
@@ -189,7 +195,7 @@ class Worker():
                 if episode_count % 10 == 0 and episode_count != 0:
                     self._save_summary(episode_count, v_l, p_l, e_l, g_n, v_n)
 
-                    if self.lead_worker and episode_count % 50 == 0:
+                    if self.state_is_image and self.lead_worker and episode_count % 50 == 0:
                         self._save_gif(episode_count, episode_frames)
 
                     if self.lead_worker and episode_count % 250 == 0:
