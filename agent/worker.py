@@ -135,7 +135,7 @@ class Worker():
         return len(episode_buffer) == tmax and not terminal_state and episode_steps != max_episode_length - 1
 
 
-    def work(self, max_episode_length, gamma, sess, coord, saver, reward_scale=0.001, tmax=30):
+    def work(self, max_episode_length, gamma, sess, coord, saver, reward_scale=0.01, tmax=30):
         episode_count = sess.run(self.global_episodes)
         total_steps = 0
         print("Starting worker " + str(self.number))
