@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import scipy.signal
+import warnings
 from agent.network import AC_Network, Dense_AC_Network
 from utils.helper import *
 
@@ -29,9 +30,9 @@ class Worker():
 
         #Create the local copy of the network and the tensorflow op to copy global paramters to local network
         if state_is_image:
-            self.local_AC = AC_Network(s_size, a_size, self.name, trainer, beta=0.1)
+            self.local_AC = AC_Network(s_size, a_size, self.name, trainer, beta=0.01)
         else:
-            self.local_AC = Dense_AC_Network(s_size, a_size, self.name, trainer, beta=0.1)
+            self.local_AC = Dense_AC_Network(s_size, a_size, self.name, trainer, beta=.01)
         self.update_local_ops = update_target_graph('global', self.name)
 
         #The Below code is related to setting up the Doom environment
@@ -93,7 +94,14 @@ class Worker():
             [self.local_AC.policy, self.local_AC.value, self.local_AC.state_out],
              self._get_feed_dict(state, rnn_state))
 
-        action = np.random.choice(self.actions, p=action_distribution[0])
+        action = 0
+        with warnings.catch_warnings():
+            warnings.filterwarnings('error')
+            try:
+                action = np.random.choice(self.actions, p=action_distribution[0])
+            except RuntimeWarning:
+                print("Invalid value, printing policy")
+                print(action_distribution[0])
         return action, value[0,0], rnn_state
 
     def _step(self, action, reward_scale):
@@ -196,8 +204,14 @@ class Worker():
                 if episode_count % 10 == 0 and episode_count != 0:
                     self._save_summary(episode_count, v_l, p_l, e_l, g_n, v_n)
 
-                    if self.state_is_image and self.lead_worker and episode_count % 50 == 0:
-                        self._save_gif(episode_count, episode_frames)
+                    if self.lead_worker and episode_count % 50 == 0:
+                        print(episode_step_count)
+                        print(sess.run(
+            [self.local_AC.policy, self.local_AC.value, self.local_AC.state_out],
+             self._get_feed_dict(state, rnn_state))[0][0])
+
+                        if self.state_is_image:
+                            self._save_gif(episode_count, episode_frames)
 
                     if self.lead_worker and episode_count % 250 == 0:
                         self._save_model(sess, saver, episode_count)
