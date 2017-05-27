@@ -14,6 +14,9 @@ from time import time
 
 
 class Worker():
+    """ Interacts with environment to update global network.
+    """
+
     def __init__(self, env, name, s_size, a_size, trainer, model_path, global_episodes, state_is_image=True):
         self.name = "worker_" + str(name)
         self.number = name
@@ -30,22 +33,23 @@ class Worker():
 
         #Create the local copy of the network and the tensorflow op to copy global paramters to local network
         if state_is_image:
-            self.local_AC = AC_Network(s_size, a_size, self.name, trainer, beta=0.01)
+            self.local_AC = AC_Network(s_size, a_size, self.name, trainer, beta=0.001)
         else:
-            self.local_AC = Dense_AC_Network(s_size, a_size, self.name, trainer, beta=.01)
+            self.local_AC = Dense_AC_Network(s_size, a_size, self.name, trainer, beta=0.001)
         self.update_local_ops = update_target_graph('global', self.name)
 
-        #The Below code is related to setting up the Doom environment
+        # Create list of all possible action values
         self.actions = [i for i in range(a_size)]
-        #End Doom set-up
         self.env = env
 
     def train(self, rollout, sess, gamma, value_dict=None):
-
+        """ Update local network with local network.
+        """
         # sanity check: if there is no experience, return zeros.
         if len(rollout) == 0:
             return 0.0, 0.0, 0.0, 0.0, 0.0
 
+        # If reward value is unknown, estimate using value function
         bootstrap_value = sess.run(self.local_AC.value, value_dict)[0, 0] if value_dict is not None else 0.0
         rollout = np.array(rollout)
         observations = rollout[:, 0]
@@ -54,8 +58,8 @@ class Worker():
         next_observations = rollout[:, 3]
         values = rollout[:, 5]
 
-        # Here we take the rewards and values from the rollout, and use them to 
-        # generate the advantage and discounted returns. 
+        # Here we take the rewards and values from the rollout, and use them to
+        # generate the advantage and discounted returns.
         # The advantage function uses "Generalized Advantage Estimation"
         self.rewards_plus = np.asarray(rewards.tolist() + [bootstrap_value])
         discounted_rewards = discount(self.rewards_plus, gamma)[:-1]
@@ -83,33 +87,42 @@ class Worker():
         return v_l / len(rollout), p_l / len(rollout), e_l / len(rollout), g_n, v_n
 
     def _get_feed_dict(self, state, rnn_state):
+        """ Creates feed_dict from state for inputs to network.
+        """
         return {
-                self.local_AC.inputs: [state],
-                self.local_AC.state_in[0]: rnn_state[0],
-                self.local_AC.state_in[1]: rnn_state[1]
+            self.local_AC.inputs: [state],
+            self.local_AC.state_in[0]: rnn_state[0],
+            self.local_AC.state_in[1]: rnn_state[1]
         }
 
     def _choose_action(self, sess, state, rnn_state):
+        """ Chooses action based on probability distribution from policy network.
+        """
+        # Get action distribution from network
         action_distribution, value, rnn_state = sess.run(
-            [self.local_AC.policy, self.local_AC.value, self.local_AC.state_out],
-             self._get_feed_dict(state, rnn_state))
+            [self.local_AC.policy, self.local_AC.value, self.local_AC.state_out], self._get_feed_dict(state, rnn_state))
 
         action = 0
         with warnings.catch_warnings():
             warnings.filterwarnings('error')
             try:
+                # Randomly sample action based on action distribution
                 action = np.random.choice(self.actions, p=action_distribution[0])
             except RuntimeWarning:
                 print("Invalid value, printing policy")
                 print(action_distribution[0])
-        return action, value[0,0], rnn_state
+        return action, value[0, 0], rnn_state
 
     def _step(self, action, reward_scale):
+        """ Steps environment forward with given action.
+        """
         next_state, reward, terminal, _ = self.env.step(action)
         reward *= reward_scale
         return next_state, reward, terminal
 
     def _save_summary(self, episode_count, v_l, p_l, e_l, g_n, v_n):
+        """ Save statistics for viewing on tensorboard.
+        """
         mean_reward = np.mean(self.episode_rewards[-5:])
         mean_length = np.mean(self.episode_lengths[-5:])
         mean_value = np.mean(self.episode_mean_values[-5:])
@@ -126,6 +139,8 @@ class Worker():
         self.summary_writer.flush()
 
     def _save_gif(self, episode_count, episode_frames):
+        """ Saves gif for visualizing agent's interaction with environment.
+        """
         time_per_step = 0.05
         images = np.array(episode_frames)
 
@@ -137,18 +152,24 @@ class Worker():
             salience=False)
 
     def _save_model(self, sess, saver, episode_count):
+        """ Saves model weights.
+        """
         saver.save(sess, self.model_path + '/model-' + str(episode_count) + '.cptk')
 
     def _training_required(self, episode_buffer, terminal_state, episode_steps, max_episode_length, tmax):
+        """ Determines if master network weights should be updated with local network weights.
+        """
         return len(episode_buffer) == tmax and not terminal_state and episode_steps != max_episode_length - 1
 
-
     def work(self, max_episode_length, gamma, sess, coord, saver, reward_scale=0.01, tmax=30):
+        """ Runs local network on environment and performs training.
+        """
         episode_count = sess.run(self.global_episodes)
         total_steps = 0
         print("Starting worker " + str(self.number))
         with sess.as_default(), sess.graph.as_default():
             while not coord.should_stop():
+                # Updates local network with global network weights
                 sess.run(self.update_local_ops)
                 episode_buffer = []
                 episode_values = []
@@ -158,9 +179,11 @@ class Worker():
                 in_terminal_state = False
 
                 state = self.env.reset()
+                # Append and preprocess frames if image
                 if self.state_is_image:
                     episode_frames.append(state)
                     state = process_frame(state)
+                # Initialize rnn_state
                 rnn_state = self.local_AC.state_init
 
                 while not in_terminal_state:
@@ -168,6 +191,7 @@ class Worker():
                     action, value, rnn_state = self._choose_action(sess, state, rnn_state)
                     next_state, reward, in_terminal_state = self._step(action, reward_scale)
 
+                    # Append values from environment to lists
                     if not in_terminal_state:
                         if self.state_is_image:
                             episode_frames.append(next_state)
@@ -185,14 +209,14 @@ class Worker():
 
                     # If the episode hasn't ended, but the experience buffer is full, then we
                     # make an update step using that experience rollout.
-                    if self._training_required(episode_buffer, in_terminal_state, episode_step_count, max_episode_length, tmax):
+                    if self._training_required(episode_buffer, in_terminal_state, episode_step_count,
+                                               max_episode_length, tmax):
                         # Since we don't know what the true final return is, we "bootstrap" from our current
                         # value estimation.
-                        v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer,
-                                                             sess,
-                                                             gamma,
+                        v_l, p_l, e_l, g_n, v_n = self.train(episode_buffer, sess, gamma,
                                                              self._get_feed_dict(state, rnn_state))
                         episode_buffer = []
+                        # Updates local network with global network weights
                         sess.run(self.update_local_ops)
 
                 self.episode_rewards.append(episode_reward)
@@ -205,31 +229,37 @@ class Worker():
                     self._save_summary(episode_count, v_l, p_l, e_l, g_n, v_n)
 
                     if self.lead_worker and episode_count % 50 == 0:
-                        print(episode_step_count)
-                        print(sess.run(
-            [self.local_AC.policy, self.local_AC.value, self.local_AC.state_out],
-             self._get_feed_dict(state, rnn_state))[0][0])
+                        print(
+                            sess.run([self.local_AC.policy, self.local_AC.value, self.local_AC.state_out],
+                                     self._get_feed_dict(state, rnn_state))[0][0])
 
+                        # Save gif of episode
                         if self.state_is_image:
                             self._save_gif(episode_count, episode_frames)
 
+                    # Save model weights
                     if self.lead_worker and episode_count % 250 == 0:
                         self._save_model(sess, saver, episode_count)
                         print("Model Saved.")
 
+                # Increment global_episodes
                 if self.lead_worker:
                     sess.run(self.increment)
-                    
+
                 episode_count += 1
 
     def run(self, max_episode_length, sess):
+        """ Runs network on environment without training.
+        """
         with sess.as_default(), sess.graph.as_default():
             episode_reward = 0
             episode_step_count = 0
             in_terminal_state = False
 
+            # Get first frame and preprocess
             state = self.env.reset()
             state = process_frame(state)
+            # Initialize rnn_state
             rnn_state = self.local_AC.state_init
 
             while not in_terminal_state:
