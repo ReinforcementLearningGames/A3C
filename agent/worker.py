@@ -147,9 +147,7 @@ class Worker():
         make_gif(
             images,
             'results/frames/image' + str(episode_count) + '.gif',
-            duration=len(images) * time_per_step,
-            true_image=True,
-            salience=False)
+            duration=len(images) * time_per_step)
 
     def _save_model(self, sess, saver, episode_count):
         """ Saves model weights.
