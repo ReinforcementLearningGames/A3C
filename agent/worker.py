@@ -33,9 +33,9 @@ class Worker():
 
         #Create the local copy of the network and the tensorflow op to copy global paramters to local network
         if state_is_image:
-            self.local_AC = AC_Network(s_size, a_size, self.name, trainer, beta=0.001)
+            self.local_AC = AC_Network(s_size, a_size, self.name, trainer, beta=0.01)
         else:
-            self.local_AC = Dense_AC_Network(s_size, a_size, self.name, trainer, beta=0.001)
+            self.local_AC = Dense_AC_Network(s_size, a_size, self.name, trainer, beta=0.01)
         self.update_local_ops = update_target_graph('global', self.name)
 
         # Create list of all possible action values
