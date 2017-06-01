@@ -8,6 +8,7 @@ A3C algorithm implemented to solve various tasks in OpenAI Gym
 - [```agent/network.py```](agent/network.py) Defines structure for actor and critic networks
 - [```agent/worker.py```](agent/worker.py) Runs training procedure on environment
 - [```utils/helper.py```](utils/worker.py) Various helper functions
+- [```run_random_agent.py```](run_random_agent.py) Runs random agent for comparison
 - [```test.py```](test.py) Evaluates model on environment
 - [```train.py```](train.py) Trains model on environment
 
