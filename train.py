@@ -23,6 +23,7 @@ parser.add_argument("--reward_scale", type=float, default=.01, required=False)
 parser.add_argument("--tmax", type=int, default=30, required=False)
 parser.add_argument("--load", action="store_true", required=False)
 parser.add_argument("--env_name", type=str, default="ppaquette/DoomBasic-v0", required=False)
+parser.add_argument("--beta", type=float, default=0.01, required=False)
 args = parser.parse_args()
 
 if __name__ == "__main__":
@@ -53,7 +54,7 @@ if __name__ == "__main__":
         for i in range(num_workers):
             # Create new environment for each worker
             envs.append(get_env(args.env_name))
-            workers.append(Worker(envs[i], i, args.observation_dim, a_size, trainer, model_path, global_episodes, state_is_image=state_is_image))
+            workers.append(Worker(envs[i], i, args.observation_dim, a_size, trainer, model_path, global_episodes, args.beta, state_is_image=state_is_image))
         saver = tf.train.Saver(max_to_keep=5)
 
     with tf.Session() as sess:

@@ -17,7 +17,7 @@ class Worker():
     """ Interacts with environment to update global network.
     """
 
-    def __init__(self, env, name, s_size, a_size, trainer, model_path, global_episodes, state_is_image=True):
+    def __init__(self, env, name, s_size, a_size, trainer, model_path, global_episodes, beta, state_is_image=True):
         self.name = "worker_" + str(name)
         self.number = name
         self.model_path = model_path
@@ -33,9 +33,9 @@ class Worker():
 
         #Create the local copy of the network and the tensorflow op to copy global paramters to local network
         if state_is_image:
-            self.local_AC = AC_Network(s_size, a_size, self.name, trainer, beta=0.001)
+            self.local_AC = AC_Network(s_size, a_size, self.name, trainer, beta=beta)
         else:
-            self.local_AC = Dense_AC_Network(s_size, a_size, self.name, trainer, beta=0.001)
+            self.local_AC = Dense_AC_Network(s_size, a_size, self.name, trainer, beta=beta)
         self.update_local_ops = update_target_graph('global', self.name)
 
         # Create list of all possible action values
